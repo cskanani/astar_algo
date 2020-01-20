@@ -1,141 +1,143 @@
-import queue,random
-ol = queue.PriorityQueue() #openlist implimented with PriorityQueue to store non-visited nodes based on f value
-cl = [] #closed list to store visited nodes
-mvs = [] #list to store moves from root to goal
-nexp = 0 #number of nodes explored
-nvis = 0 #number of nodes visited
-htyp = '' #hueristics type m = Manhatan, d = Displaced tiles, o = Over-estimated, any other for Zero hueristics
-goal = [1,2,3,4,5,6,7,8,0]
+import queue, random
 
 #function for moving tile
-def mv_u(p):
-    arr=p.arr.copy()
-    zi = arr.index(0)
-    if(zi in [0,1,2]):
+def move_up(parent, hueristics_type):
+    state = parent.state.copy()
+    zero_index = state.index(0)
+    if(zero_index in [0, 1, 2]):
         return None
     else:
-        arr[zi],arr[zi-3] =  arr[zi-3],arr[zi]
-        return Node(p,arr,'u')
+        state[zero_index], state[zero_index-3] = state[zero_index-3], state[zero_index]
+        return Node(parent, state, 'up', hueristics_type)
         
-def mv_d(p):
-    arr=p.arr.copy()
-    zi = arr.index(0)
-    if(zi in [6,7,8]):
+def move_down(parent, hueristics_type):
+    state = parent.state.copy()
+    zero_index = state.index(0)
+    if(zero_index in [6, 7, 8]):
         return None
     else:
-        arr[zi],arr[zi+3] =  arr[zi+3],arr[zi]
-        return Node(p,arr,'d')
+        state[zero_index], state[zero_index+3] = state[zero_index+3], state[zero_index]
+        return Node(parent, state, 'down', hueristics_type)
         
-def mv_l(p):
-    arr=p.arr.copy()
-    zi = arr.index(0)
-    if(zi in [0,3,6]):
+def move_left(parent, hueristics_type):
+    state = parent.state.copy()
+    zero_index = state.index(0)
+    if(zero_index in [0, 3, 6]):
         return None
     else:
-        arr[zi],arr[zi-1] =  arr[zi-1],arr[zi]
-        return Node(p,arr,'l')
+        state[zero_index], state[zero_index-1] = state[zero_index-1], state[zero_index]
+        return Node(parent, state, 'left', hueristics_type)
         
-def mv_r(p):
-    arr=p.arr.copy()
-    zi = arr.index(0)
-    if(zi in [2,5,8]):
+def move_right(parent, hueristics_type):
+    state = parent.state.copy()
+    zero_index = state.index(0)
+    if(zero_index in [2, 5, 8]):
         return None
     else:
-        arr[zi],arr[zi+1] =  arr[zi+1],arr[zi]
-        return Node(p,arr,'r')
+        state[zero_index], state[zero_index+1] = state[zero_index+1], state[zero_index]
+        return Node(parent, state, 'right', hueristics_type)
 
 #function for generating child-nodes
-def gen_c(parent):
-    global nexp
-    mu = mv_u(parent)
-    md = mv_d(parent)
-    ml = mv_l(parent)
-    mr = mv_r(parent)
-    if (mu != None): ol.put(mu);nexp+=1
-    if (md != None): ol.put(md);nexp+=1
-    if (ml != None): ol.put(ml);nexp+=1
-    if (mr != None): ol.put(mr);nexp+=1
+def generate_childs(parent, open_list, hueristics_type):
+    up_child = move_up(parent, hueristics_type)
+    down_child = move_down(parent, hueristics_type)
+    left_child = move_left(parent, hueristics_type)
+    right_child = move_right(parent, hueristics_type)
+    new_nodes_count = 0
+    if (up_child != None): open_list.put(up_child); new_nodes_count += 1
+    if (down_child != None): open_list.put(down_child); new_nodes_count += 1
+    if (left_child != None): open_list.put(left_child); new_nodes_count += 1
+    if (right_child != None): open_list.put(right_child); new_nodes_count += 1
+    return new_nodes_count
     
 #function for calculating different type of hueristics
-def find_h(arr):
+def get_huristics(state, hueristics_type):
     h = 0
-    if(htyp == 'm'):
-        for i in range(1,9):
-            pos = arr.index(i)
-            x = pos//3
-            y = pos%3
-            posg = goal.index(i)
-            xg = posg//3
-            yg = posg%3
-            h += abs(xg-x) + abs(yg-y)
-    elif(htyp == 'd'):
-        for i in range(1,9):
-            if(arr[i-1] != i): 
+    if(hueristics_type == 'manhattan'):
+        for i in range(1, 9):
+            i_position = state.index(i)
+            x = i_position // 3
+            y = i_position % 3
+            i_goal_position = goal_state.index(i)
+            x_goal = i_goal_position // 3
+            y_goal = i_goal_position % 3
+            h += abs(x_goal - x) + abs(y_goal - y)
+    elif(hueristics_type == 'displaced_tiles'):
+        for i in range(1, 9):
+            if(state[i-1] != i): 
                 h += 1
-    elif(htyp == 'o'):
-        return random.randint(1000,2000)
+    elif(hueristics_type == 'over_estimated'):
+        return random.randint(1000, 2000)
     else:
         return 0
     return h
 
 #class for creating node objects
 class Node:
-    def __init__(self,parent,arr,mv):
+    def __init__(self, parent, state, move, hueristics_type):
         self.parent = parent
-        self.mv = mv
+        self.move = move
         self.g = parent.g+1 if (parent != None) else 0
-        self.h = find_h(arr)
+        self.h = get_huristics(state, hueristics_type)
         self.f = self.g+self.h
-        self.arr = arr
+        self.state = state
         
     def __lt__(self, other):
         return self.f < other.f
-     
-#taking initial state from user
-sarr = [int(x) for x in input('arr : ').split(' ')]
 
 #function to run a_star algo
-def run_as(m):
-    global htyp, nmvs, nvis
-    nexp = 0
-    htyp = m
-    mvs[:] = []
-    cl[:] = []
-    ol.queue.clear()
+def run_as(start_state, hueristics_type):
+    visited_nodes_count = 0
+    explored_nodes_count = 0
+    path = []
+    closed_list = []
+    #openlist implimented with PriorityQueue to store non-visited nodes based on f value
+    open_list = queue.PriorityQueue()
     
-    s = Node(None,sarr,'')
-    ol.put(s)
+    start_node = Node(None, start_state, '', hueristics_type)
+    open_list.put(start_node)
 
-    while(not ol.empty()):
-        nvis += 1
-        p = ol.get()
-        if(p.arr == goal):
-            while(p.parent != None):
-                mvs.insert(0,p.mv)
-                p = p.parent
+    while(not open_list.empty()):
+        visited_nodes_count += 1
+        parent = open_list.get()
+        if(parent.state == goal_state):
+            while(parent.parent != None):
+                path.insert(0, parent.move)
+                parent = parent.parent
             break
-        if p in cl:
+        if parent in closed_list:
             continue
-        gen_c(p)
-        cl.append(p.arr)
+        explored_nodes_count += generate_childs(parent, open_list, hueristics_type)
+        closed_list.append(parent.state)
+    return explored_nodes_count, visited_nodes_count, path
 
-#funvtion for printing results data
-def p_data(m):
+#function for printing results data
+def print_data(hueristics_type, explored_nodes_count, visited_nodes_count, path):
     print('\n')
-    if(htyp == 'm'):
+    if(hueristics_type == 'manhattan'):
         print('Data with Manhatan hueristics : ')
-    elif(htyp == 'd'):
+    elif(hueristics_type == 'displaced_tiles'):
         print('Data with displaced tiles hueristics : ')
-    elif(htyp == 'o'):
+    elif(hueristics_type == 'over_estimated'):
         print('Data with over-estimated hueristics : ')
     else:
         print('Data with zero hueristics : ')
-    print('Number of nodes explored :',nexp)
-    print('Number of nodes visited :',nvis)
-    print('Length of path :',len(mvs))
-    print('Path to goal :',mvs)
+    print('Number of nodes explored :', explored_nodes_count)
+    print('Number of nodes visited :', visited_nodes_count)
+    print('Length of path :', len(path))
+    print('Path to goal_state :', path)
 
-run_as('m');p_data('m')
-run_as('d');p_data('d')
-run_as('z');p_data('z')
-run_as('o');p_data('o')
+
+#taking initial state from user
+start_state = [int(x) for x in input('state: ').split(' ')]
+goal_state = [1, 2, 3, 4, 5, 6, 7, 8, 0]
+
+#hueristics type manhattan, displaced_tiles, any other for Zero hueristics
+explored_nodes_count, visited_nodes_count, path = run_as(start_state, 'manhattan')
+print_data('manhattan', explored_nodes_count, visited_nodes_count, path)
+explored_nodes_count, visited_nodes_count, path = run_as(start_state, 'displaced_tiles')
+print_data('displaced_tiles', explored_nodes_count, visited_nodes_count, path)
+explored_nodes_count, visited_nodes_count, path = run_as(start_state, 'z')
+print_data('z', explored_nodes_count, visited_nodes_count, path)
+explored_nodes_count, visited_nodes_count, path = run_as(start_state, 'over_estimated')
+print_data('over_estimated', explored_nodes_count, visited_nodes_count, path)
